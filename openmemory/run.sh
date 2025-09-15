@@ -55,8 +55,8 @@ export NEXT_PUBLIC_USER_ID="$USER"
 export FRONTEND_PORT
 
 # Parse vector store selection (env var or flag). Default: qdrant
-VECTOR_STORE="${VECTOR_STORE:-qdrant}"
-EMBEDDING_DIMS="${EMBEDDING_DIMS:-1536}"
+VECTOR_STORE="${VECTOR_STORE:-milvus}"
+EMBEDDING_DIMS="${EMBEDDING_DIMS:-19530}"
 
 for arg in "$@"; do
   case $arg in
@@ -76,142 +76,6 @@ done
 export VECTOR_STORE
 echo "🧰 Using vector store: $VECTOR_STORE"
 
-# Function to create compose file by merging vector store config with openmemory-mcp service
-create_compose_file() {
-  local vector_store=$1
-  local compose_file="compose/${vector_store}.yml"
-  local volume_name="${vector_store}_data"  # Vector-store-specific volume name
-  
-  # Check if the compose file exists
-  if [ ! -f "$compose_file" ]; then
-    echo "❌ Compose file not found: $compose_file"
-    echo "Available vector stores: $(ls compose/*.yml | sed 's/compose\///g' | sed 's/\.yml//g' | tr '\n' ' ')"
-    exit 1
-  fi
-  
-  echo "📝 Creating docker-compose.yml using $compose_file..."
-  echo "💾 Using volume: $volume_name"
-  
-  # Start the compose file with services section
-  echo "services:" > docker-compose.yml
-  
-  # Extract services from the compose file and replace volume name
-  # First get everything except the last volumes section
-  tail -n +2 "$compose_file" | sed '/^volumes:/,$d' | sed "s/mem0_storage/${volume_name}/g" >> docker-compose.yml
-  
-  # Add a newline to ensure proper YAML formatting
-  echo "" >> docker-compose.yml
-  
-  # Add the openmemory-mcp service
-  cat >> docker-compose.yml <<EOF
-  openmemory-mcp:
-    image: mem0/openmemory-mcp:latest
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - USER=${USER}
-EOF
-
-  # Add vector store specific environment variables
-  case "$vector_store" in
-    weaviate)
-      cat >> docker-compose.yml <<EOF
-      - WEAVIATE_HOST=mem0_store
-      - WEAVIATE_PORT=8080
-EOF
-      ;;
-    redis)
-      cat >> docker-compose.yml <<EOF
-      - REDIS_URL=redis://mem0_store:6379
-EOF
-      ;;
-    pgvector)
-      cat >> docker-compose.yml <<EOF
-      - PG_HOST=mem0_store
-      - PG_PORT=5432
-      - PG_DB=mem0
-      - PG_USER=mem0
-      - PG_PASSWORD=mem0
-EOF
-      ;;
-    qdrant)
-      cat >> docker-compose.yml <<EOF
-      - QDRANT_HOST=mem0_store
-      - QDRANT_PORT=6333
-EOF
-      ;;
-    chroma)
-      cat >> docker-compose.yml <<EOF
-      - CHROMA_HOST=mem0_store
-      - CHROMA_PORT=8000
-EOF
-      ;;
-    milvus)
-      cat >> docker-compose.yml <<EOF
-      - MILVUS_HOST=mem0_store
-      - MILVUS_PORT=19530
-EOF
-      ;;
-    elasticsearch)
-      cat >> docker-compose.yml <<EOF
-      - ELASTICSEARCH_HOST=mem0_store
-      - ELASTICSEARCH_PORT=9200
-      - ELASTICSEARCH_USER=elastic
-      - ELASTICSEARCH_PASSWORD=changeme
-EOF
-      ;;
-    faiss)
-      cat >> docker-compose.yml <<EOF
-      - FAISS_PATH=/tmp/faiss
-EOF
-      ;;
-    *)
-      echo "⚠️ Unknown vector store: $vector_store. Using default Qdrant configuration."
-      cat >> docker-compose.yml <<EOF
-      - QDRANT_HOST=mem0_store
-      - QDRANT_PORT=6333
-EOF
-      ;;
-  esac
-
-  # Add common openmemory-mcp service configuration
-  if [ "$vector_store" = "faiss" ]; then
-    # FAISS doesn't need a separate service, just volume mounts
-    cat >> docker-compose.yml <<EOF
-    ports:
-      - "8765:8765"
-    volumes:
-      - openmemory_db:/usr/src/openmemory
-      - ${volume_name}:/tmp/faiss
-
-volumes:
-  ${volume_name}:
-  openmemory_db:
-EOF
-  else
-    cat >> docker-compose.yml <<EOF
-    depends_on:
-      - mem0_store
-    ports:
-      - "8765:8765"
-    volumes:
-      - openmemory_db:/usr/src/openmemory
-
-volumes:
-  ${volume_name}:
-  openmemory_db:
-EOF
-  fi
-}
-
-# Create docker-compose.yml file based on selected vector store
-echo "📝 Creating docker-compose.yml..."
-create_compose_file "$VECTOR_STORE"
-
-# Ensure local data directories exist for bind-mounted vector stores
-if [ "$VECTOR_STORE" = "milvus" ]; then
-  echo "🗂️ Ensuring local data directories for Milvus exist..."
-  mkdir -p ./data/milvus/etcd ./data/milvus/minio ./data/milvus/milvus
-fi
 
 # Function to install vector store specific packages
 install_vector_store_packages() {
@@ -371,30 +235,4 @@ elif [ "$VECTOR_STORE" = "faiss" ]; then
   curl -fsS -X PUT "${NEXT_PUBLIC_API_URL}/api/v1/config/mem0/vector_store" \
     -H 'Content-Type: application/json' \
     -d "{\"provider\":\"faiss\",\"config\":{\"collection_name\":\"openmemory\",\"embedding_model_dims\":${EMBEDDING_DIMS},\"path\":\"/tmp/faiss\",\"distance_strategy\":\"cosine\"}}" >/dev/null || true
-fi
-
-# Start the frontend
-echo "🚀 Starting frontend on port $FRONTEND_PORT..."
-docker run -d \
-  --name mem0_ui \
-  -p ${FRONTEND_PORT}:3000 \
-  -e NEXT_PUBLIC_API_URL="$NEXT_PUBLIC_API_URL" \
-  -e NEXT_PUBLIC_USER_ID="$USER" \
-  mem0/openmemory-ui:latest
-
-echo "✅ Backend:  http://localhost:8765"
-echo "✅ Frontend: http://localhost:$FRONTEND_PORT"
-
-# Open the frontend URL in the default web browser
-echo "🌐 Opening frontend in the default browser..."
-URL="http://localhost:$FRONTEND_PORT"
-
-if command -v xdg-open > /dev/null; then
-  xdg-open "$URL"        # Linux
-elif command -v open > /dev/null; then
-  open "$URL"            # macOS
-elif command -v start > /dev/null; then
-  start "$URL"           # Windows (if run via Git Bash or similar)
-else
-  echo "⚠️ Could not detect a method to open the browser. Please open $URL manually."
 fi

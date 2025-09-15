@@ -1,26 +1,19 @@
 services:
-  mem0_store:
-    image: qdrant/qdrant
-    ports:
-      - "6333:6333"
-    volumes:
-      - mem0_storage:/mem0/storage
   openmemory-mcp:
     image: mem0/openmemory-mcp
     build: api/
     environment:
-      - USER
-      - API_KEY
-    env_file:
-      - api/.env
-    depends_on:
-      - mem0_store
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - USER=${USER}
+      - MILVUS_HOST=${MILVUS_HOST:-openmemory-milvus}
+      - MILVUS_PORT=${MILVUS_PORT:-19530}
     ports:
       - "8765:8765"
     volumes:
-      - ./api:/usr/src/openmemory
+      - openmemory_db:/usr/src/openmemory
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
+
   openmemory-ui:
     build:
       context: ui/
@@ -33,4 +26,8 @@ services:
       - NEXT_PUBLIC_USER_ID=${USER}
 
 volumes:
-  mem0_storage:
+  openmemory_db: 
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/openmemory
