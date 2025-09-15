@@ -4,9 +4,13 @@ services:
     build: api/
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL}
+      - OPENAI_API_MODEL=${OPENAI_API_MODEL}
       - USER=${USER}
       - MILVUS_HOST=${MILVUS_HOST:-openmemory-milvus}
       - MILVUS_PORT=${MILVUS_PORT:-19530}
+      - MILVUS_TOKEN=${MILVUS_TOKEN}
     ports:
       - "8765:8765"
     volumes:

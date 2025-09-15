@@ -264,7 +264,7 @@ def get_default_memory_config():
         "llm": {
             "provider": "openai",
             "config": {
-                "model": "env:OPENAI_LLM_MODEL",
+                "model": "env:OPENAI_API_MODEL",
                 "temperature": 0.1,
                 "max_tokens": 15000,
                 "api_key": "env:OPENAI_API_KEY",
