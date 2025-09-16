@@ -1,7 +1,6 @@
-# syntax=docker.io/docker/dockerfile:1
-
-# Base stage for common setup
 FROM node:18-alpine AS base
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories 
 
 # Install dependencies for pnpm
 RUN apk add --no-cache libc6-compat curl && \

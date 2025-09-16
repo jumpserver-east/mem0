@@ -4,8 +4,9 @@ LABEL org.opencontainers.image.name="mem0/openmemory-mcp"
 
 WORKDIR /usr/src/openmemory
 
+ARG PIP_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt -i ${PIP_MIRROR}
 
 COPY config.json .
 COPY . .
