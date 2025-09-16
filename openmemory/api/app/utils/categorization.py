@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List
 
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
@@ -20,15 +21,15 @@ def get_categories_for_memory(memory: str) -> List[str]:
     try:
         messages = [
             {"role": "system", "content": MEMORY_CATEGORIZATION_PROMPT},
-            {"role": "user", "content": memory}
+            {"role": "user", "content": memory},
         ]
 
         # Let OpenAI handle the pydantic parsing directly
         completion = openai_client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model=os.environ.get("OPENAI_API_MODEL", "gpt-4o-mini"),
             messages=messages,
             response_format=MemoryCategories,
-            temperature=0
+            temperature=0,
         )
 
         parsed: MemoryCategories = completion.choices[0].message.parsed
@@ -37,7 +38,9 @@ def get_categories_for_memory(memory: str) -> List[str]:
     except Exception as e:
         logging.error(f"[ERROR] Failed to get categories: {e}")
         try:
-            logging.debug(f"[DEBUG] Raw response: {completion.choices[0].message.content}")
+            logging.debug(
+                f"[DEBUG] Raw response: {completion.choices[0].message.content}"
+            )
         except Exception as debug_e:
             logging.debug(f"[DEBUG] Could not extract raw response: {debug_e}")
         raise

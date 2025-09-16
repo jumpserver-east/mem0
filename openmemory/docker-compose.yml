@@ -14,7 +14,7 @@ services:
     ports:
       - "8765:8765"
     volumes:
-      - openmemory_db:/usr/src/openmemory
+      - openmemory_db:/usr/src/openmemory/openmemory.db
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
     networks:
@@ -38,7 +38,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /opt/openmemory
+      device: /opt/openmemory/data/openmemory.db
 
 networks:
   mem0_network:

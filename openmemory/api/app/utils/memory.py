@@ -205,7 +205,7 @@ def get_default_memory_config():
                 "MILVUS_TOKEN", ""
             ),  # Always include, empty string for local setup
             "db_name": os.environ.get("MILVUS_DB_NAME", ""),
-            "embedding_model_dims": 1536,
+            "embedding_model_dims": 3072,
             "metric_type": "COSINE",  # Using COSINE for better semantic similarity
         }
     elif os.environ.get("ELASTICSEARCH_HOST") and os.environ.get("ELASTICSEARCH_PORT"):
@@ -276,6 +276,7 @@ def get_default_memory_config():
             "config": {
                 "model": "env:OPENAI_EMBEDDING_MODEL",
                 "api_key": "env:OPENAI_API_KEY",
+                "embedding_dims": 3072,
                 "openai_base_url": "env:OPENAI_BASE_URL",  # Optional custom base URL
             },
         },
