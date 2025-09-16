@@ -13,6 +13,9 @@ FROM base AS deps
 
 COPY package.json pnpm-lock.yaml ./
 
+RUN pnpm config set registry https://registry.npmmirror.com/ && \
+    pnpm config set fetch-concurrency 10
+
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
